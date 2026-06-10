@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unity UI Canvas & RectTransform Interactive Guide</title>
+  <meta name="description" content="An interactive, visual simulator for understanding Unity Canvas Render Modes, RectTransform, Anchors, Pivot, and Canvas Scaler.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+</head>
+<body>
+
+  <h2 class="sr-only">Interactive explainer for Unity Canvas, RectTransform, and anchors — covering Canvas render modes, anchor presets, pivot, and responsive layout</h2>
+
+  <div class="tabs">
+    <div id="tab-btn-canvas" class="tab active" onclick="sw('canvas')">Canvas Render Modes</div>
+    <div id="tab-btn-rect" class="tab" onclick="sw('rect')">RectTransform Anatomy</div>
+    <div id="tab-btn-anchors" class="tab" onclick="sw('anchors')">Anchors Live Demo</div>
+    <div id="tab-btn-pivot" class="tab" onclick="sw('pivot')">Pivot & Transforms</div>
+    <div id="tab-btn-scaler" class="tab" onclick="sw('scaler')">Canvas Scaler Simulator</div>
+  </div>
+
+  <!-- TAB 1: CANVAS RENDER MODES -->
+  <div id="tab-canvas" class="panel active">
+    <div class="grid2">
+      <div>
+        <div class="card mb-3">
+          <div class="card-title">The Root of All UI</div>
+          <div class="card-body">
+            The Canvas is the root container for all Unity UI. <b style="font-weight:600">Every UI element must be a child of a Canvas.</b> It defines how UI elements are rendered to the screen. Click a render mode to preview it in the interactive 3D scene.
+          </div>
+        </div>
+
+        <div class="render-card sel" id="rm0" onclick="selRM(0)">
+          <div class="render-title"><span class="badge b-teal">Default</span> Screen Space — Overlay</div>
+          <div class="render-body">
+            UI is drawn on top of everything, after the scene renders. It always covers the full screen and is not affected by any camera. <b style="font-weight:600">Use this for HUDs, menus, and standard game UI.</b>
+          </div>
+        </div>
+        <div class="render-card" id="rm1" onclick="selRM(1)">
+          <div class="render-title"><span class="badge b-blue">Camera</span> Screen Space — Camera</div>
+          <div class="render-body">
+            The Canvas is rendered by a specific camera at a set distance in front of it. UI elements are affected by camera perspective, rotation, and post-processing effects. Use this when UI should be overlaid but integrated with scene depth.
+          </div>
+        </div>
+        <div class="render-card" id="rm2" onclick="selRM(2)">
+          <div class="render-title"><span class="badge b-purple">3D</span> World Space</div>
+          <div class="render-body">
+            The Canvas behaves like a regular 3D object in the scene. It has physical positions, rotation, and scale, allowing it to appear behind or in front of world objects. Use this for character nameplates, in-world terminals, or floating health bars.
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="display: flex; flex-direction: column; height: 100%;">
+          <div class="card-title flex-between">
+            <span>3D Scene & Viewport Simulation</span>
+            <div class="flex-gap">
+              <button class="btn btn-secondary" onclick="reset3DCamera()"><i class="ti ti-rotate"></i> Reset Camera</button>
+            </div>
+          </div>
+          
+          <div class="slider-row">
+            <span class="slider-label">Rotate View:</span>
+            <input type="range" min="-90" max="90" value="-30" id="rot-3d-slider" oninput="update3DScene(this.value)">
+            <span class="slider-val" id="rot-3d-val">-30°</span>
+          </div>
+
+          <!-- 3D Viewport container -->
+          <div class="viewport-3d">
+            <div class="world-container" id="world-container" style="transform: rotateX(-15deg) rotateY(-30deg);">
+              <!-- 3D Grid floor -->
+              <div style="position: absolute; width: 300px; height: 300px; border: 1px dashed var(--color-border); background: radial-gradient(circle, transparent 40%, var(--bg-inset) 100%), repeating-linear-gradient(0deg, var(--color-border) 0 1px, transparent 1px 30px), repeating-linear-gradient(90deg, var(--color-border) 0 1px, transparent 1px 30px); transform: rotateX(90deg) translateY(50px); opacity: 0.8;"></div>
+              
+              <!-- Camera Wireframe -->
+              <div id="v-camera" style="position: absolute; transform: translate3d(-100px, 0, 80px) rotateY(15deg); transform-style: preserve-3d; transition: var(--transition);">
+                <!-- Camera Box -->
+                <div style="width: 40px; height: 26px; background: #334155; border: 2px solid #64748b; color: white; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; border-radius: 4px;">CAM</div>
+                <!-- Frustum Lines -->
+                <div id="frustum" style="position: absolute; top: 13px; left: 40px; width: 140px; height: 1px; border-top: 1px dashed #64748b; transform-origin: left; transform: rotateY(-10deg); width: 150px; opacity: 0.6;"></div>
+                <div id="frustum-2" style="position: absolute; top: 13px; left: 40px; width: 140px; height: 1px; border-top: 1px dashed #64748b; transform-origin: left; transform: rotateY(10deg); width: 150px; opacity: 0.6;"></div>
+              </div>
+
+              <!-- 3D World Object (Cube) -->
+              <div style="position: absolute; transform: translate3d(50px, 10px, -20px); transform-style: preserve-3d; width: 40px; height: 40px; background: var(--color-accent); border: 2px solid var(--text-primary); opacity: 0.85; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 10px;">CUBE</div>
+
+              <!-- World Space Canvas -->
+              <div id="v-world-canvas" style="position: absolute; transform: translate3d(50px, -40px, -20px) rotateY(-10deg); width: 70px; height: 35px; background: rgba(147, 51, 234, 0.2); border: 2.5px solid #a855f7; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #a855f7; box-shadow: 0 0 10px rgba(168,85,247,0.3); transition: var(--transition);">
+                <span>WORLD UI</span>
+                <span style="font-size: 6px; font-weight: normal;">(nameplate)</span>
+              </div>
+
+              <!-- Screen Space Camera Canvas -->
+              <div id="v-camera-canvas" style="position: absolute; transform: translate3d(20px, 0, 60px) rotateY(15deg); width: 90px; height: 55px; background: rgba(59, 130, 246, 0.15); border: 2.5px solid #3b82f6; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #3b82f6; box-shadow: 0 0 10px rgba(59,130,246,0.3); opacity: 0; transition: var(--transition);">
+                <span>CAMERA UI</span>
+                <span style="font-size: 6px; font-weight: normal;">(frustum locked)</span>
+              </div>
+            </div>
+
+            <!-- Overlay Canvas - rendered directly on top of 3D viewport (2D) -->
+            <div id="v-overlay-canvas" style="position: absolute; inset: 25px; border: 3px solid #14b8a6; background: rgba(20, 184, 166, 0.08); border-radius: 8px; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; color: #14b8a6; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: var(--transition);">
+              <div style="background: rgba(20, 184, 166, 0.2); padding: 4px 12px; border-radius: 20px;">SCREEN SPACE OVERLAY</div>
+              <div style="font-size: 10px; font-weight: normal; margin-top: 4px;">Rendered flat on screen • Always on top</div>
+            </div>
+          </div>
+          
+          <div class="tip" style="margin-top: 12px;">
+            <i class="ti ti-info-circle"></i>
+            <span id="canvas-tip-text">Overlay mode: The UI Canvas is drawn strictly in 2D on top of everything. Rotating the camera or scene has no effect on its position or size.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: RECTTRANSFORM ANATOMY -->
+  <div id="tab-rect" class="panel">
+    <div class="grid2">
+      <div>
+        <div class="card mb-3">
+          <div class="card-title">Interactive Inspector Controls</div>
+          <div class="card-body">
+            Unlike 3D Transforms, a <b style="font-weight:600">RectTransform</b> represents a rectangle with layout metrics. Modify the properties below to see how they affect the UI element in the real-time SVG diagram.
+          </div>
+        </div>
+
+        <div class="insp mb-3">
+          <div class="insp-title">RectTransform — Inspector</div>
+          
+          <!-- Width / Height -->
+          <div class="slider-group">
+            <div class="slider-row">
+              <span class="slider-label">Width:</span>
+              <input type="range" min="60" max="220" value="140" id="rt-width" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-width-val">140px</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Height:</span>
+              <input type="range" min="30" max="130" value="70" id="rt-height" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-height-val">70px</span>
+            </div>
+          </div>
+
+          <!-- Position -->
+          <div class="slider-group">
+            <div class="slider-row">
+              <span class="slider-label">PosX (X):</span>
+              <input type="range" min="-80" max="80" value="10" id="rt-posx" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-posx-val">10</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">PosY (Y):</span>
+              <input type="range" min="-60" max="60" value="-20" id="rt-posy" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-posy-val">-20</span>
+            </div>
+          </div>
+
+          <!-- Pivot -->
+          <div class="slider-group">
+            <div class="slider-row">
+              <span class="slider-label">Pivot X:</span>
+              <input type="range" min="0" max="1" value="0.5" step="0.1" id="rt-pivotx" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-pivotx-val">0.5</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Pivot Y:</span>
+              <input type="range" min="0" max="1" value="0.5" step="0.1" id="rt-pivoty" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-pivoty-val">0.5</span>
+            </div>
+          </div>
+
+          <!-- Anchors -->
+          <div class="slider-group">
+            <div class="slider-row">
+              <span class="slider-label">Anchor X:</span>
+              <input type="range" min="0" max="1" value="0.5" step="0.25" id="rt-ancx" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-ancx-val">0.5</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Anchor Y:</span>
+              <input type="range" min="0" max="1" value="0.5" step="0.25" id="rt-ancy" oninput="updateRectDemo()">
+              <span class="slider-val" id="rt-ancy-val">0.5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="warn">
+          <i class="ti ti-alert-triangle"></i>
+          <span><b>Anchored Position</b> is measured from the anchor reference point to the element's <b>Pivot</b>, not its center!</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="text-align: center;">
+          <div class="card-title">Interactive SVG Architecture Blueprint</div>
+          
+          <svg width="100%" height="280" viewBox="0 0 300 280" style="background: var(--bg-inset); border-radius: var(--border-radius-md); border: 1px solid var(--color-border);" id="rect-svg">
+            <!-- Parent Container -->
+            <rect x="20" y="20" width="260" height="240" rx="8" fill="none" stroke="var(--text-tertiary)" stroke-dasharray="3 3" stroke-width="1"></rect>
+            <text x="30" y="38" font-size="11" fill="var(--text-tertiary)" font-weight="600">Parent Rect (Canvas)</text>
+            
+            <!-- Dynamic components will be rendered here by Javascript -->
+            <g id="svg-dynamics"></g>
+          </svg>
+
+          <div class="insp mt-3" style="text-align: left;">
+            <div class="insp-title">Layout Computation</div>
+            <div class="prop-row"><span class="prop-label">Anchor Coord:</span><span class="prop-val blue" id="comp-anchor-coord">150, 140</span></div>
+            <div class="prop-row"><span class="prop-label">Pivot Coord:</span><span class="prop-val changed" id="comp-pivot-coord">160, 160</span></div>
+            <div class="prop-row"><span class="prop-label">Visual Center:</span><span class="prop-val" id="comp-center">160, 160</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: ANCHORS LIVE DEMO -->
+  <div id="tab-anchors" class="panel">
+    <div class="grid2">
+      <div>
+        <div class="card mb-3">
+          <div class="card-title">Anchor Presets</div>
+          <div class="card-body">
+            Anchors define how a child UI element repositions and stretches when its parent container resizes. Click a preset, then use the slider or drag the simulator window edge to observe.
+          </div>
+        </div>
+
+        <div class="anchor-grid" id="anchor-grid">
+          <div class="ag-cell sel" onclick="setAnchor('top-left')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="2,2 8,2 2,8" fill="var(--color-primary)"/><rect x="3" y="3" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Top Left</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('top-center')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="16,2 21,2 16,7 11,2" fill="var(--color-primary)"/><rect x="11" y="3" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Top Center</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('top-right')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="30,2 24,2 30,8" fill="var(--color-primary)"/><rect x="19" y="3" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Top Right</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('center')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><circle cx="16" cy="16" r="3" fill="var(--color-primary)"/><rect x="11" y="12" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Center</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('bottom-center')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="16,30 21,30 16,25 11,30" fill="var(--color-primary)"/><rect x="11" y="21" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Bottom Center</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('bottom-right')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="30,30 24,30 30,24" fill="var(--color-primary)"/><rect x="19" y="21" width="10" height="8" rx="2" fill="var(--color-primary)" opacity=".35"/></svg>
+            <div class="ag-label">Bottom Right</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('stretch-h')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="2,16 6,12 2,8" fill="var(--color-accent)"/><polygon points="30,16 26,12 30,8" fill="var(--color-accent)"/><rect x="2" y="12" width="28" height="8" rx="2" fill="var(--color-accent)" opacity=".35"/></svg>
+            <div class="ag-label">Stretch Horiz</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('stretch-v')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="16,2 12,6 20,6" fill="var(--color-accent)"/><polygon points="16,30 12,26 20,26" fill="var(--color-accent)"/><rect x="12" y="2" width="8" height="28" rx="2" fill="var(--color-accent)" opacity=".35"/></svg>
+            <div class="ag-label">Stretch Vert</div>
+          </div>
+          <div class="ag-cell" onclick="setAnchor('stretch-all')">
+            <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="3" fill="none" stroke="var(--color-border)" stroke-width="1.5"/><polygon points="2,2 8,2 2,8" fill="var(--color-accent)"/><polygon points="30,2 24,2 30,8" fill="var(--color-accent)"/><polygon points="2,30 8,30 2,24" fill="var(--color-accent)"/><polygon points="30,30 24,30 30,24" fill="var(--color-accent)"/><rect x="2" y="2" width="28" height="28" rx="2" fill="var(--color-accent)" opacity=".2"/></svg>
+            <div class="ag-label">Stretch All</div>
+          </div>
+        </div>
+
+        <div id="anchor-desc" class="tip"><i class="ti ti-info-circle"></i><span id="anchor-desc-text">Element stays fixed distance from top-left corner. When screen resizes, it stays near the top-left.</span></div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-title">Interactive Parent Window Simulator</div>
+          <div class="card-body mb-2">Drag the screen width slider or drag the right edge of the box below:</div>
+          
+          <div class="slider-row">
+            <span>Narrow</span>
+            <input type="range" min="40" max="100" value="100" id="screen-slider" step="1" oninput="updateDemo(this.value)">
+            <span>Wide</span>
+            <span class="slider-val" id="screen-val">100%</span>
+          </div>
+          
+          <!-- Resizable container wrapper -->
+          <div id="screen-demo-wrapper" style="width: 100%; position: relative;">
+            <div class="screen-demo" id="screen-demo" style="height:180px; width:100%; max-width: 100%;">
+              <div id="ui-elem" class="ui-elem" style="background: var(--color-primary); color: #fff; width: 80px; height: 35px; border-radius: 6px;">Button</div>
+              <!-- Dynamic Anchor Line Canvas Overlay -->
+              <svg id="anchor-lines-svg" style="position: absolute; inset: 0; pointer-events: none; width: 100%; height: 100%;">
+                <g id="anchor-lines-group"></g>
+              </svg>
+              
+              <!-- Drag Handle for Resizing directly -->
+              <div id="resize-handle" style="position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: center; transition: var(--transition);"><i class="ti ti-arrows-horizontal" style="font-size: 10px; opacity: 0.5;"></i></div>
+            </div>
+          </div>
+
+          <div class="insp mt-3">
+            <div class="insp-title">Inspector Rect Values</div>
+            <div class="prop-row"><span class="prop-label">Anchor Min:</span><span class="prop-val blue" id="anc-min">0 / 1</span></div>
+            <div class="prop-row"><span class="prop-label">Anchor Max:</span><span class="prop-val blue" id="anc-max">0 / 1</span></div>
+            <div class="prop-row"><span class="prop-label" id="width-height-label">Width / Height:</span><span class="prop-val" id="anc-w">80px / 35px</span></div>
+            <div class="prop-row"><span class="prop-label" id="offset-label">Offsets:</span><span class="prop-val changed" id="anc-offsets">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: PIVOT & TRANSFORMS -->
+  <div id="tab-pivot" class="panel">
+    <div class="grid2">
+      <div>
+        <div class="card mb-3">
+          <div class="card-title">Pivot, Rotation, and Scaling</div>
+          <div class="card-body">
+            The <b style="font-weight:600">pivot</b> is the local origin of rotation and scale. By shifting the pivot, you control the anchor point around which the element rotates or grows. Click a preset to relocate the pivot, then rotate or scale.
+          </div>
+        </div>
+
+        <div class="insp mb-3">
+          <div class="insp-title">Pivot Presets & Values</div>
+          <div class="button-grid">
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0, 1)">Top Left (0, 1)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0.5, 1)">Top Ctr (0.5, 1)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(1, 1)">Top Right (1, 1)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0, 0.5)">Mid Left (0, 0.5)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0.5, 0.5)">Center (0.5, 0.5)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(1, 0.5)">Mid Right (1, 0.5)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0, 0)">Bot Left (0, 0)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(0.5, 0)">Bot Ctr (0.5, 0)</button>
+            <button class="btn btn-secondary btn-sm" onclick="setPivotPreset(1, 0)">Bot Right (1, 0)</button>
+          </div>
+          
+          <div class="slider-row">
+            <span class="slider-label">Pivot X:</span>
+            <input type="range" min="0" max="1" value="0.5" step="0.1" id="piv-x-slider" oninput="updatePivotCustom()">
+            <span class="slider-val" id="piv-x-val">0.5</span>
+          </div>
+          <div class="slider-row">
+            <span class="slider-label">Pivot Y:</span>
+            <input type="range" min="0" max="1" value="0.5" step="0.1" id="piv-y-slider" oninput="updatePivotCustom()">
+            <span class="slider-val" id="piv-y-val">0.5</span>
+          </div>
+        </div>
+
+        <div class="insp mb-3">
+          <div class="insp-title">Transform Controls</div>
+          <div class="slider-row">
+            <span class="slider-label">Rotation Z:</span>
+            <input type="range" min="-180" max="180" value="0" id="piv-rot-slider" oninput="updatePivotTransform()">
+            <span class="slider-val" id="piv-rot-val">0°</span>
+          </div>
+          <div class="slider-row">
+            <span class="slider-label">Scale:</span>
+            <input type="range" min="0.5" max="1.8" value="1.0" step="0.1" id="piv-scale-slider" oninput="updatePivotTransform()">
+            <span class="slider-val" id="piv-scale-val">1.0</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button class="btn" onclick="togglePivotRotation()"><i class="ti ti-player-play"></i> Animate Rotation</button>
+            <button class="btn btn-secondary" onclick="resetPivotTransform()">Reset Transforms</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="text-align: center; height: 100%; display: flex; flex-direction: column;">
+          <div class="card-title">Live Transform Viewport</div>
+          <div class="card-body mb-2">Notice the orange dot (Pivot) remains stationary during rotation and scaling!</div>
+          
+          <div style="flex: 1; min-height: 250px; background: var(--bg-inset); border-radius: var(--border-radius-md); border: 1px solid var(--color-border); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <!-- Transform Box Container -->
+            <div id="pivot-test-container" style="position: relative; width: 160px; height: 100px; border: 1.5px solid var(--color-primary); background: rgba(99, 102, 241, 0.1); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; transform-origin: 50% 50%; transition: transform 0.05s linear;">
+              <span style="font-weight: 700; color: var(--color-primary); font-size: 15px;">TRANSFORM ME</span>
+              <span style="font-size: 10px; color: var(--text-secondary);">Watch my Pivot point</span>
+              
+              <!-- Pivot Dot Visualizer inside the element -->
+              <div id="pivot-dot" style="position: absolute; width: 10px; height: 10px; background: var(--color-accent); border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(249,115,22,0.8); transform: translate(-50%, -50%); z-index: 10;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: CANVAS SCALER SIMULATOR -->
+  <div id="tab-scaler" class="panel">
+    <div class="grid2">
+      <div>
+        <div class="card mb-3">
+          <div class="card-title">Canvas Scaler Component</div>
+          <div class="card-body">
+            The Canvas Scaler determines how the UI layout scales across various screen dimensions. 
+            Select a mode, then choose different screen presets or resize the viewport to see how your UI fits.
+          </div>
+        </div>
+
+        <div class="insp mb-3">
+          <div class="insp-title">Scaler Settings</div>
+          <div class="slider-row">
+            <span class="slider-label">Scale Mode:</span>
+            <select class="control-select" id="scaler-mode" onchange="updateScalerSimulation()">
+              <option value="constant">Constant Pixel Size (Fixed Pixels)</option>
+              <option value="scale" selected>Scale With Screen Size (Match 50/50)</option>
+              <option value="scale-width">Scale With Screen Size (Match Width)</option>
+              <option value="scale-height">Scale With Screen Size (Match Height)</option>
+            </select>
+          </div>
+          <div class="slider-row">
+            <span class="slider-label">Ref Resolution:</span>
+            <select class="control-select" id="scaler-ref" onchange="updateScalerSimulation()">
+              <option value="1920x1080">1920 × 1080 (16:9 Landscape)</option>
+              <option value="1080x1920">1080 × 1920 (9:16 Portrait)</option>
+              <option value="1024x768">1024 × 768 (4:3 Tablet)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="insp mb-3">
+          <div class="insp-title">Target Device Presets</div>
+          <div class="button-grid">
+            <button class="btn btn-secondary btn-sm" onclick="setScalerPreset(360, 640, 'Mobile')">Mobile Portrait</button>
+            <button class="btn btn-secondary btn-sm" onclick="setScalerPreset(1920, 1080, 'Desktop 1080p')">Desktop Full HD</button>
+            <button class="btn btn-secondary btn-sm" onclick="setScalerPreset(3840, 2160, '4K Screen')">4K UHD Display</button>
+            <button class="btn btn-secondary btn-sm" onclick="setScalerPreset(1024, 768, 'Tablet')">iPad Tablet</button>
+          </div>
+        </div>
+
+        <div class="tip">
+          <i class="ti ti-info-circle"></i>
+          <span><b>Scale With Screen Size</b> dynamically computes a Scale Factor based on reference resolution vs current screen aspect. <b>Constant Pixel Size</b> elements do not scale, making them tiny on high-res displays.</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="display: flex; flex-direction: column;">
+          <div class="card-title flex-between">
+            <span>Device Viewport Simulator</span>
+            <span class="badge b-blue" id="sim-device-tag">Desktop Full HD</span>
+          </div>
+
+          <div class="slider-row">
+            <span class="slider-label">Sim Width:</span>
+            <input type="range" min="300" max="600" value="480" id="sim-width" oninput="updateScalerSimulation()">
+            <span class="slider-val" id="sim-width-val">480px</span>
+          </div>
+          <div class="slider-row">
+            <span class="slider-label">Sim Height:</span>
+            <input type="range" min="200" max="400" value="300" id="sim-height" oninput="updateScalerSimulation()">
+            <span class="slider-val" id="sim-height-val">300px</span>
+          </div>
+
+          <!-- Scaler Simulator Display Container -->
+          <div style="flex: 1; min-height: 280px; background: var(--bg-inset); border-radius: var(--border-radius-md); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 10px;">
+            <div id="sim-screen" style="position: relative; background: #000; border: 3px solid #334155; border-radius: 8px; width: 480px; height: 300px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.3); transition: width 0.1s ease-out, height 0.1s ease-out;">
+              <!-- Simulated Canvas Layout -->
+              <div id="sim-canvas" style="position: absolute; inset: 0; transform-origin: 0 0;">
+                <!-- UI Header (top stretch) -->
+                <div style="position: absolute; top: 0; left: 0; right: 0; height: 35px; background: rgba(99, 102, 241, 0.85); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; color: white; font-weight: bold; font-size: 11px;">
+                  <span>Header Menu</span>
+                  <div style="display: flex; gap: 6px;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>
+                </div>
+                
+                <!-- Pop-up Window (center) -->
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 140px; height: 90px; background: white; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; color: #1e293b;">
+                  <span style="font-size: 10px; font-weight: bold; color: var(--color-primary);">Center Panel</span>
+                  <span style="font-size: 7px; text-align: center; color: #64748b; margin-top: 4px;">Anchored to the center of the Canvas.</span>
+                  <button style="margin-top: 6px; font-size: 7px; background: var(--color-primary); color: white; border: none; padding: 2px 8px; border-radius: 3px;">OK</button>
+                </div>
+
+                <!-- HUD Button (bottom right) -->
+                <div style="position: absolute; bottom: 10px; right: 10px; padding: 6px 12px; background: var(--color-accent); color: white; border-radius: 4px; font-size: 8px; font-weight: bold;">
+                  Action Button
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="insp mt-3">
+            <div class="insp-title">Scaler Factor Computation</div>
+            <div class="prop-row"><span class="prop-label">Sim Resolution:</span><span class="prop-val" id="scaler-sim-res">1920 × 1080</span></div>
+            <div class="prop-row"><span class="prop-label">Computed Scale Factor:</span><span class="prop-val blue" id="scaler-factor">1.00x</span></div>
+            <div class="prop-row"><span class="prop-label">Visual Button Width:</span><span class="prop-val changed" id="scaler-visual-size">80px</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    function sw(id) {
+      const ids = ['canvas', 'rect', 'anchors', 'pivot', 'scaler'];
+      ids.forEach(tabId => {
+        const panel = document.getElementById('tab-' + tabId);
+        const btn = document.getElementById('tab-btn-' + tabId);
+        if (panel && btn) {
+          panel.classList.toggle('active', tabId === id);
+          btn.classList.toggle('active', tabId === id);
+        }
+      });
+      
+      // Initialize tab specific states when switched
+      if (id === 'rect') updateRectDemo();
+      if (id === 'anchors') updateDemo(currentWidth);
+      if (id === 'pivot') updatePivotTransform();
+      if (id === 'scaler') updateScalerSimulation();
+    }
+
+    // TAB 1: CANVAS RENDER MODES
+    let currentRM = 0;
+    function selRM(i) {
+      currentRM = i;
+      [0, 1, 2].forEach(j => {
+        const card = document.getElementById('rm' + j);
+        if (card) card.classList.toggle('sel', j === i);
+      });
+
+      const overlay = document.getElementById('v-overlay-canvas');
+      const camCanvas = document.getElementById('v-camera-canvas');
+      const worldCanvas = document.getElementById('v-world-canvas');
+      const cameraObj = document.getElementById('v-camera');
+      const frustumLines = [document.getElementById('frustum'), document.getElementById('frustum-2')];
+      const tipText = document.getElementById('canvas-tip-text');
+
+      // Reset visibilities
+      overlay.style.opacity = '0';
+      camCanvas.style.opacity = '0';
+      worldCanvas.style.opacity = '0.35';
+      worldCanvas.style.borderStyle = 'dashed';
+      cameraObj.style.opacity = '0.4';
+      frustumLines.forEach(l => l.style.opacity = '0.1');
+
+      if (i === 0) { // Screen Space Overlay
+        overlay.style.opacity = '1';
+        tipText.innerHTML = '<b>Screen Space - Overlay</b>: The UI Canvas is drawn strictly in 2D on top of everything. Rotating the camera or scene has no effect on its position or size.';
+      } else if (i === 1) { // Screen Space Camera
+        camCanvas.style.opacity = '1';
+        cameraObj.style.opacity = '1';
+        frustumLines.forEach(l => l.style.opacity = '0.8');
+        tipText.innerHTML = '<b>Screen Space - Camera</b>: The UI Canvas is placed in front of the Camera. If the camera rotates or moves, the UI rotates and moves with it, matching the camera frustum.';
+      } else if (i === 2) { // World Space
+        worldCanvas.style.opacity = '1';
+        worldCanvas.style.borderStyle = 'solid';
+        cameraObj.style.opacity = '1';
+        frustumLines.forEach(l => l.style.opacity = '0.6');
+        tipText.innerHTML = '<b>World Space</b>: The UI is placed directly in the 3D scene (just like a billboard, health bar, or poster). It is affected by the camera perspective and scene rotations.';
+      }
+    }
+
+    function update3DScene(val) {
+      document.getElementById('rot-3d-val').textContent = val + '°';
+      document.getElementById('world-container').style.transform = `rotateX(-15deg) rotateY(${val}deg)`;
+    }
+
+    function reset3DCamera() {
+      const slider = document.getElementById('rot-3d-slider');
+      slider.value = -30;
+      update3DScene(-30);
+    }
+
+    // TAB 2: RECTTRANSFORM ANATOMY
+    function updateRectDemo() {
+      const w = parseInt(document.getElementById('rt-width').value);
+      const h = parseInt(document.getElementById('rt-height').value);
+      const px = parseInt(document.getElementById('rt-posx').value);
+      const py = parseInt(document.getElementById('rt-posy').value);
+      const pivX = parseFloat(document.getElementById('rt-pivotx').value);
+      const pivY = parseFloat(document.getElementById('rt-pivoty').value);
+      const ancX = parseFloat(document.getElementById('rt-ancx').value);
+      const ancY = parseFloat(document.getElementById('rt-ancy').value);
+
+      document.getElementById('rt-width-val').textContent = w + 'px';
+      document.getElementById('rt-height-val').textContent = h + 'px';
+      document.getElementById('rt-posx-val').textContent = px;
+      document.getElementById('rt-posy-val').textContent = py;
+      document.getElementById('rt-pivotx-val').textContent = pivX;
+      document.getElementById('rt-pivoty-val').textContent = pivY;
+      document.getElementById('rt-ancx-val').textContent = ancX;
+      document.getElementById('rt-ancy-val').textContent = ancY;
+
+      // Draw SVG Components dynamically
+      const containerW = 260;
+      const containerH = 240;
+      const originX = 20;
+      const originY = 20;
+
+      // Calculations:
+      // Anchor position on Parent Canvas:
+      const ax = originX + (containerW * ancX);
+      const ay = originY + (containerH * (1 - ancY)); // SVG Y starts top, Unity UI Y starts bottom
+
+      // Pivot position relative to UI center is:
+      // px, py are offsets from anchor to pivot
+      const pivotCoordX = ax + px;
+      const pivotCoordY = ay - py; // Unity Y positive is UP, SVG Y positive is DOWN
+
+      // UI element center coordinate:
+      const visualCenterX = pivotCoordX + (0.5 - pivX) * w;
+      const visualCenterY = pivotCoordY - (0.5 - pivY) * h; // SVG offset
+
+      const uiX = visualCenterX - w/2;
+      const uiY = visualCenterY - h/2;
+
+      document.getElementById('comp-anchor-coord').textContent = `${Math.round(ax)}, ${Math.round(ay)}`;
+      document.getElementById('comp-pivot-coord').textContent = `${Math.round(pivotCoordX)}, ${Math.round(pivotCoordY)}`;
+      document.getElementById('comp-center').textContent = `${Math.round(visualCenterX)}, ${Math.round(visualCenterY)}`;
+
+      // Update SVG Group
+      const dynamicsGroup = document.getElementById('svg-dynamics');
+      dynamicsGroup.innerHTML = `
+        <!-- Anchor Lines from Parent to Anchor -->
+        <line x1="${ax}" y1="${originY}" x2="${ax}" y2="${originY + containerH}" stroke="rgba(16, 185, 129, 0.3)" stroke-dasharray="2 2" stroke-width="1" />
+        <line x1="${originX}" y1="${ay}" x2="${originX + containerW}" y2="${ay}" stroke="rgba(16, 185, 129, 0.3)" stroke-dasharray="2 2" stroke-width="1" />
+
+        <!-- Anchor Triangle Icon -->
+        <polygon points="${ax},${ay} ${ax-6},${ay-6} ${ax-6},${ay+6}" fill="var(--color-primary)" opacity="0.8"/>
+        <polygon points="${ax},${ay} ${ax+6},${ay-6} ${ax+6},${ay+6}" fill="var(--color-primary)" opacity="0.8"/>
+        <polygon points="${ax},${ay} ${ax-6},${ay-6} ${ax+6},${ay-6}" fill="var(--color-primary)" opacity="0.8"/>
+        <polygon points="${ax},${ay} ${ax-6},${ay+6} ${ax+6},${ay+6}" fill="var(--color-primary)" opacity="0.8"/>
+        
+        <!-- UI Rectangle -->
+        <rect x="${uiX}" y="${uiY}" width="${w}" height="${h}" rx="4" fill="rgba(99, 102, 241, 0.15)" stroke="var(--color-primary)" stroke-width="1.5"></rect>
+
+        <!-- Position Vector line (Anchor to Pivot) -->
+        <line x1="${ax}" y1="${ay}" x2="${pivotCoordX}" y2="${pivotCoordY}" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        
+        <!-- Width & Height Dimension Lines -->
+        <line x1="${uiX}" y1="${uiY + h + 10}" x2="${uiX + w}" y2="${uiY + h + 10}" stroke="var(--text-tertiary)" stroke-width="1"/>
+        <text x="${uiX + w/2}" y="${uiY + h + 24}" font-size="9" fill="var(--text-tertiary)" text-anchor="middle">W: ${w}px</text>
+        
+        <!-- Pivot Indicator (Orange Dot) -->
+        <circle cx="${pivotCoordX}" cy="${pivotCoordY}" r="4.5" fill="var(--color-accent)" stroke="white" stroke-width="1"/>
+        <text x="${pivotCoordX + 8}" y="${pivotCoordY - 6}" font-size="9.5" font-weight="bold" fill="var(--color-accent)">Pivot (${pivX}, ${pivY})</text>
+        
+        <!-- Text details -->
+        <text x="${ax + 8}" y="${ay - 6}" font-size="9" fill="var(--text-secondary)">Anchor (${ancX}, ${ancY})</text>
+        
+        <!-- AnchoredPosition label overlay -->
+        <text x="${(ax + pivotCoordX)/2 + 6}" y="${(ay + pivotCoordY)/2 + 10}" font-size="9" fill="var(--color-accent)" font-weight="600">pos (${px}, ${py})</text>
+      `;
+    }
+
+    // TAB 3: ANCHORS LIVE DEMO
+    const anchorData = {
+      'top-left': { min: '0 / 1', max: '0 / 1', desc: 'Element stays a fixed distance from the top-left corner of the parent canvas when resized.', pos: (w, h) => ({ l: 15, t: 15, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: 0, y1: 15, x2: p.l, y2: 15}, {x1: 15, y1: 0, x2: 15, y2: p.t}] },
+      'top-center': { min: '0.5 / 1', max: '0.5 / 1', desc: 'Element stays centered horizontally at the top. Ideal for top-navigation headers.', pos: (w, h) => ({ l: w/2 - 40, t: 15, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: w/2, y1: 0, x2: w/2, y2: p.t}] },
+      'top-right': { min: '1 / 1', max: '1 / 1', desc: 'Element stays at a fixed distance from the top-right corner. Useful for map HUDs, score tags.', pos: (w, h) => ({ l: w - 95, t: 15, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: w, y1: 15, x2: p.l + 80, y2: 15}, {x1: w - 15, y1: 0, x2: w - 15, y2: p.t}] },
+      'center': { min: '0.5 / 0.5', max: '0.5 / 0.5', desc: 'Element stays centered in the parent. Best for modal dialogue boxes, popups, and pause screens.', pos: (w, h) => ({ l: w/2 - 40, t: h/2 - 17.5, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: w/2, y1: h/2, x2: p.l + 40, y2: p.t + 17.5}] },
+      'bottom-center': { min: '0.5 / 0', max: '0.5 / 0', desc: 'Element stays centered at the bottom of the parent layout.', pos: (w, h) => ({ l: w/2 - 40, t: h - 50, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: w/2, y1: h, x2: w/2, y2: p.t + 35}] },
+      'bottom-right': { min: '1 / 0', max: '1 / 0', desc: 'Element remains locked to the bottom-right corner.', pos: (w, h) => ({ l: w - 95, t: h - 50, ew: 80, eh: 35, stretch: false }), lines: (w, h, p) => [{x1: w, y1: h - 32.5, x2: p.l + 80, y2: h - 32.5}, {x1: w - 15, y1: h, x2: w - 15, y2: p.t + 35}] },
+      'stretch-h': { min: '0 / 0.5', max: '1 / 0.5', desc: 'Element stretches horizontally to match parent width. Left and Right margins become static offsets.', pos: (w, h) => ({ l: 15, t: h/2 - 17.5, ew: w - 30, eh: 35, stretch: true, axis: 'h' }), lines: (w, h, p) => [{x1: 0, y1: h/2, x2: p.l, y2: h/2}, {x1: w, y1: h/2, x2: p.l + p.ew, y2: h/2}] },
+      'stretch-v': { min: '0.5 / 0', max: '0.5 / 1', desc: 'Element stretches vertically to match parent height. Top and Bottom margins are fixed offsets.', pos: (w, h) => ({ l: w/2 - 40, t: 15, ew: 80, eh: h - 30, stretch: true, axis: 'v' }), lines: (w, h, p) => [{x1: w/2, y1: 0, x2: w/2, y2: p.t}, {x1: w/2, y1: h, x2: w/2, y2: p.t + p.eh}] },
+      'stretch-all': { min: '0 / 0', max: '1 / 1', desc: 'Element completely scales on both axes to stretch with the parent. Left, Right, Top, and Bottom margins stay fixed.', pos: (w, h) => ({ l: 15, t: 15, ew: w - 30, eh: h - 30, stretch: true, axis: 'both' }), lines: (w, h, p) => [{x1: 0, y1: 15, x2: 15, y2: 15}, {x1: w, y1: 15, x2: w - 15, y2: 15}, {x1: 15, y1: 0, x2: 15, y2: 15}, {x1: 15, y1: h, x2: 15, y2: h - 15}] }
+    };
+
+    let currentAnchor = 'top-left';
+    let currentWidth = 100;
+
+    function setAnchor(a) {
+      currentAnchor = a;
+      document.querySelectorAll('.ag-cell').forEach(c => c.classList.remove('sel'));
+      
+      const keys = Object.keys(anchorData);
+      const cells = document.querySelectorAll('.ag-cell');
+      const idx = keys.indexOf(a);
+      if (cells[idx]) cells[idx].classList.add('sel');
+      
+      const d = anchorData[a];
+      document.getElementById('anchor-desc-text').innerHTML = d.desc;
+      document.getElementById('anc-min').textContent = d.min;
+      document.getElementById('anc-max').textContent = d.max;
+      
+      updateDemo(currentWidth);
+    }
+
+    function updateDemo(pct) {
+      currentWidth = parseInt(pct);
+      document.getElementById('screen-val').textContent = pct + '%';
+      
+      const demo = document.getElementById('screen-demo');
+      const wrapper = document.getElementById('screen-demo-wrapper');
+      const containerWidth = wrapper.offsetWidth || 300;
+      const w = Math.round(containerWidth * (pct / 100));
+      demo.style.width = w + 'px';
+      
+      const h = 180;
+      const d = anchorData[currentAnchor];
+      const p = d.pos(w, h);
+      
+      const el = document.getElementById('ui-elem');
+      el.style.left = Math.max(0, p.l) + 'px';
+      el.style.top = Math.max(0, p.t) + 'px';
+      el.style.width = p.ew + 'px';
+      el.style.height = p.eh + 'px';
+      
+      const wEl = document.getElementById('anc-w');
+      const offsetsEl = document.getElementById('anc-offsets');
+      const labelWh = document.getElementById('width-height-label');
+      const labelOff = document.getElementById('offset-label');
+      
+      if (p.stretch) {
+        labelWh.textContent = "Width / Height:";
+        wEl.textContent = `${p.ew}px / ${p.eh}px`;
+        
+        labelOff.textContent = p.axis === 'both' ? "Margins (L/R/T/B):" : "Offsets:";
+        offsetsEl.textContent = p.axis === 'h' ? "Left: 15px / Right: 15px" : (p.axis === 'v' ? "Top: 15px / Bottom: 15px" : "15px margins all-around");
+      } else {
+        labelWh.textContent = "Dimensions:";
+        wEl.textContent = `${p.ew}px × ${p.eh}px`;
+        labelOff.textContent = "Anchored Offset:";
+        offsetsEl.textContent = `PosX: ${Math.round(p.l)}px / PosY: ${Math.round(p.t)}px`;
+      }
+
+      // Draw anchor indicator lines inside simulation SVG
+      const linesGroup = document.getElementById('anchor-lines-group');
+      linesGroup.innerHTML = '';
+      if (d.lines) {
+        const lineList = d.lines(w, h, p);
+        lineList.forEach(line => {
+          const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          l.setAttribute('x1', line.x1);
+          l.setAttribute('y1', line.y1);
+          l.setAttribute('x2', line.x2);
+          l.setAttribute('y2', line.y2);
+          l.setAttribute('stroke', 'var(--color-accent)');
+          l.setAttribute('stroke-width', '1.5');
+          l.setAttribute('stroke-dasharray', '3 3');
+          linesGroup.appendChild(l);
+        });
+      }
+    }
+
+    // Direct Drag-to-Resize capability on parent simulator
+    let isDragging = false;
+    const dragHandle = document.getElementById('resize-handle');
+    
+    dragHandle.addEventListener('mousedown', function(e) {
+      isDragging = true;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'ew-resize';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      const demo = document.getElementById('screen-demo');
+      const wrapper = document.getElementById('screen-demo-wrapper');
+      const containerWidth = wrapper.offsetWidth || 300;
+      const rect = demo.getBoundingClientRect();
+      const relativeWidth = e.clientX - rect.left;
+      let pct = Math.round((relativeWidth / containerWidth) * 100);
+      pct = Math.max(40, Math.min(100, pct));
+      
+      document.getElementById('screen-slider').value = pct;
+      updateDemo(pct);
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (isDragging) {
+        isDragging = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+    });
+
+    // TAB 4: PIVOT & TRANSFORMS
+    let pivotX = 0.5;
+    let pivotY = 0.5;
+    let isRotating = false;
+    let rotationAngle = 0;
+    let animFrame;
+
+    function setPivotPreset(x, y) {
+      pivotX = x;
+      pivotY = y;
+      document.getElementById('piv-x-slider').value = x;
+      document.getElementById('piv-y-slider').value = y;
+      document.getElementById('piv-x-val').textContent = x;
+      document.getElementById('piv-y-val').textContent = y;
+      updatePivotTransform();
+    }
+
+    function updatePivotCustom() {
+      pivotX = parseFloat(document.getElementById('piv-x-slider').value);
+      pivotY = parseFloat(document.getElementById('piv-y-slider').value);
+      document.getElementById('piv-x-val').textContent = pivotX;
+      document.getElementById('piv-y-val').textContent = pivotY;
+      updatePivotTransform();
+    }
+
+    function updatePivotTransform() {
+      const rot = parseInt(document.getElementById('piv-rot-slider').value);
+      const sc = parseFloat(document.getElementById('piv-scale-slider').value);
+      
+      document.getElementById('piv-rot-val').textContent = rot + '°';
+      document.getElementById('piv-scale-val').textContent = sc.toFixed(1);
+
+      const el = document.getElementById('pivot-test-container');
+      const dot = document.getElementById('pivot-dot');
+
+      // CSS transform-origin runs from 0% to 100% on width/height.
+      // In CSS, Y is measured from top, but Unity Y is measured from bottom, so we invert Y logic: (1 - pivotY)
+      el.style.transformOrigin = `${pivotX * 100}% ${(1 - pivotY) * 100}%`;
+      el.style.transform = `rotate(${rot}deg) scale(${sc})`;
+
+      // Relocate the orange dot visually on screen inside the container boundaries
+      dot.style.left = `${pivotX * 100}%`;
+      dot.style.top = `${(1 - pivotY) * 100}%`;
+    }
+
+    function togglePivotRotation() {
+      const slider = document.getElementById('piv-rot-slider');
+      if (isRotating) {
+        isRotating = false;
+        cancelAnimationFrame(animFrame);
+      } else {
+        isRotating = true;
+        rotationAngle = parseInt(slider.value);
+        function rotateLoop() {
+          if (!isRotating) return;
+          rotationAngle = (rotationAngle + 1) % 360;
+          slider.value = rotationAngle;
+          updatePivotTransform();
+          animFrame = requestAnimationFrame(rotateLoop);
+        }
+        rotateLoop();
+      }
+    }
+
+    function resetPivotTransform() {
+      isRotating = false;
+      cancelAnimationFrame(animFrame);
+      document.getElementById('piv-rot-slider').value = 0;
+      document.getElementById('piv-scale-slider').value = 1.0;
+      setPivotPreset(0.5, 0.5);
+    }
+
+    // TAB 5: CANVAS SCALER SIMULATOR
+    function setScalerPreset(w, h, deviceName) {
+      document.getElementById('sim-device-tag').textContent = deviceName;
+      // Map visual layout width inputs (values bounded for layout limits)
+      let simW = Math.round(w / 4);
+      let simH = Math.round(h / 4);
+      if (w === 3840) { // scaled down for bounds
+        simW = 580; simH = 340;
+      }
+      document.getElementById('sim-width').value = Math.max(300, Math.min(600, simW));
+      document.getElementById('sim-height').value = Math.max(200, Math.min(400, simH));
+      updateScalerSimulation();
+    }
+
+    function updateScalerSimulation() {
+      const mode = document.getElementById('scaler-mode').value;
+      const refRes = document.getElementById('scaler-ref').value;
+      
+      const widthVal = parseInt(document.getElementById('sim-width').value);
+      const heightVal = parseInt(document.getElementById('sim-height').value);
+      
+      document.getElementById('sim-width-val').textContent = widthVal + 'px';
+      document.getElementById('sim-height-val').textContent = heightVal + 'px';
+
+      const screen = document.getElementById('sim-screen');
+      screen.style.width = widthVal + 'px';
+      screen.style.height = heightVal + 'px';
+
+      // Parse reference resolution
+      const parts = refRes.split('x');
+      const refW = parseInt(parts[0]);
+      const refH = parseInt(parts[1]);
+
+      // Calculate relative simulated size factor (e.g. mobile representation vs desktop scale)
+      // Since visual container is widthVal wide, let's map simulated screen coordinates:
+      let scaleFactor = 1.00;
+      
+      if (mode === 'scale-width') {
+        scaleFactor = widthVal / (refW / 4);
+      } else if (mode === 'scale-height') {
+        scaleFactor = heightVal / (refH / 4);
+      } else if (mode === 'scale') { // Match 50/50
+        const scaleW = widthVal / (refW / 4);
+        const scaleH = heightVal / (refH / 4);
+        scaleFactor = Math.sqrt(scaleW * scaleH);
+      } // else Constant Pixel Size stays 1.00x
+
+      // Display Resolution Stats
+      document.getElementById('scaler-sim-res').textContent = `${Math.round(widthVal * 4)} × ${Math.round(heightVal * 4)}`;
+      document.getElementById('scaler-factor').textContent = scaleFactor.toFixed(2) + 'x';
+      
+      const visualWidth = Math.round(140 * scaleFactor);
+      document.getElementById('scaler-visual-size').textContent = `${visualWidth}px`;
+
+      // Apply transform zoom factor on child canvas to simulate Canvas Scaler behavior
+      const canvas = document.getElementById('sim-canvas');
+      canvas.style.transform = `scale(${scaleFactor})`;
+      
+      // Calculate Canvas size based on scaleFactor (must fill bounds)
+      canvas.style.width = (widthVal / scaleFactor) + 'px';
+      canvas.style.height = (heightVal / scaleFactor) + 'px';
+    }
+
+    // Set Initial layouts on DOM Load
+    window.addEventListener('DOMContentLoaded', () => {
+      selRM(0);
+      updateRectDemo();
+      setAnchor('top-left');
+      updatePivotTransform();
+      updateScalerSimulation();
+    });
+  </script>
+</body>
+</html>
